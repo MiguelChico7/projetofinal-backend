@@ -1,10 +1,3 @@
-Objetivo
-É o arquivo principal do backend. Contém o código do servidor HTTP em 
-Node.js/Express, a conexão com o banco MySQL (usando mysql2/promise), e os 
-endpoints da API que o frontend (Snack) vai consumir: listar produtos, inserir 
-produto e consultar por id.
-Por que é importante: centraliza a lógica de acesso ao banco e expõe rotas seguras 
-(via HTTP) que o app pode chamar para realizar operações no banco.
 Conteudo:
 const express = require('express'); const mysql = require('mysql2/promise'); const 
 cors = require('cors'); require('dotenv').config();
