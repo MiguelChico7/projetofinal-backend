@@ -1,139 +1,113 @@
-const express = require('express');
-const mysql = require('mysql2/promise');
-const cors = require('cors');
-require('dotenv').config();
+const express = require("express");
+const cors = require("cors");
+const mysql = require("mysql2/promise");
 
 const app = express();
-const PORT = process.env.PORT || 4000;
 
 app.use(cors());
 app.use(express.json());
 
-let pool;
+const PORT = process.env.PORT || 3000;
 
-// Inicializar banco
-async function initDb() {
-  pool = mysql.createPool({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASS,
-    database: process.env.DB_NAME,
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0
-  });
+// Configuração do MySQL
+const db = mysql.createPool({
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASS,
+  database: process.env.DB_NAME,
+  port: Number(process.env.DB_PORT) || 3306,
 
-  // Testa a conexão
-  const connection = await pool.getConnection();
-  console.log('Conectado ao MySQL!');
-  connection.release();
-}
-
-// Listar todos os produtos
-app.get('/api/products', async (req, res) => {
-  try {
-    const [rows] = await pool.query(
-      'SELECT * FROM products ORDER BY id DESC'
-    );
-
-    res.json(rows);
-  } catch (err) {
-    console.error('Erro ao listar produtos:', err);
-    res.status(500).json({
-      error: 'Erro ao listar produtos'
-    });
-  }
-});
-
-// Inserir produto
-// Body: { name, description, price }
-app.post('/api/products', async (req, res) => {
-  const { name, description, price } = req.body;
-
-  if (!name || price === undefined || price === null) {
-    return res.status(400).json({
-      error: 'name e price são obrigatórios'
-    });
-  }
-
-  try {
-    const [result] = await pool.query(
-      `
-      INSERT INTO products (name, description, price)
-      VALUES (?, ?, ?)
-      `,
-      [name, description || null, price]
-    );
-
-    const [rows] = await pool.query(
-      'SELECT * FROM products WHERE id = ?',
-      [result.insertId]
-    );
-
-    res.status(201).json(rows[0]);
-  } catch (err) {
-    console.error('Erro ao inserir produto:', err);
-
-    res.status(500).json({
-      error: 'Erro ao inserir produto'
-    });
-  }
-});
-
-// Consultar produto por ID
-app.get('/api/products/:id', async (req, res) => {
-  const { id } = req.params;
-
-  try {
-    const [rows] = await pool.query(
-      'SELECT * FROM products WHERE id = ?',
-      [id]
-    );
-
-    if (rows.length === 0) {
-      return res.status(404).json({
-        error: 'Produto não encontrado'
-      });
-    }
-
-    res.json(rows[0]);
-  } catch (err) {
-    console.error('Erro ao consultar produto:', err);
-
-    res.status(500).json({
-      error: 'Erro ao consultar produto'
-    });
-  }
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
 });
 
 // Rota inicial
-app.get('/', (req, res) => {
+app.get("/", (req, res) => {
   res.json({
-    message: 'API funcionando!'
+    sucesso: true,
+    mensagem: "Backend do Projeto Final funcionando!"
   });
 });
 
-// Inicializar servidor
-async function startServer() {
+// Teste da conexão com o banco
+app.get("/api/teste-db", async (req, res) => {
   try {
-    await initDb();
+    const [resultado] = await db.query("SELECT 1 AS teste");
 
-    app.listen(PORT, () => {
-      console.log(`API rodando em http://localhost:${PORT}`);
+    res.json({
+      sucesso: true,
+      mensagem: "Conexão com o MySQL funcionando!",
+      resultado
     });
-  } catch (err) {
-    console.error('Erro ao conectar ao banco:', err);
-    process.exit(1);
+
+  } catch (erro) {
+    console.error("Erro ao conectar ao MySQL:", erro);
+
+    res.status(500).json({
+      sucesso: false,
+      mensagem: "Erro ao conectar ao banco de dados.",
+      erro: erro.message
+    });
   }
-}
-
-// Erros não tratados
-process.on('unhandledRejection', (reason) => {
-  console.error('Unhandled Rejection:', reason);
 });
 
-process.on('uncaughtException', (err) => {
-  console.error('Uncaught Exception:', err);
+// Exemplo para listar usuários
+app.get("/api/usuarios", async (req, res) => {
+  try {
+    const [usuarios] = await db.query("SELECT * FROM usuarios");
+
+    res.json({
+      sucesso: true,
+      usuarios
+    });
+
+  } catch (erro) {
+    console.error("Erro ao buscar usuários:", erro);
+
+    res.status(500).json({
+      sucesso: false,
+      mensagem: "Erro ao buscar usuários.",
+      erro: erro.message
+    });
+  }
 });
 
-startServer();
+// Criar usuário
+app.post("/api/usuarios", async (req, res) => {
+  try {
+    const { nome, email, senha } = req.body;
+
+    if (!nome || !email || !senha) {
+      return res.status(400).json({
+        sucesso: false,
+        mensagem: "Nome, email e senha são obrigatórios."
+      });
+    }
+
+    const [resultado] = await db.query(
+      "INSERT INTO usuarios (nome, email, senha) VALUES (?, ?, ?)",
+      [nome, email, senha]
+    );
+
+    res.status(201).json({
+      sucesso: true,
+      mensagem: "Usuário criado com sucesso!",
+      id: resultado.insertId
+    });
+
+  } catch (erro) {
+    console.error("Erro ao criar usuário:", erro);
+
+    res.status(500).json({
+      sucesso: false,
+      mensagem: "Erro ao criar usuário.",
+      erro: erro.message
+    });
+  }
+});
+
+// Iniciar servidor
+app.listen(PORT, () => {
+  console.log(`Servidor rodando na porta ${PORT}`);
+});
